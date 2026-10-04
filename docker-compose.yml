@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: coldchain-db
+    environment:
+      POSTGRES_DB: coldchain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - coldchain-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d coldchain"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+    container_name: coldchain-api
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/coldchain
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # 国内网络构建时取消下行注释以使用 npmmirror 镜像
+        # NPM_REGISTRY: https://registry.npmmirror.com
+        NPM_REGISTRY: https://registry.npmjs.org
+    container_name: coldchain-web
+    ports:
+      - "8088:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  coldchain-pgdata:
